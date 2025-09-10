@@ -19,6 +19,8 @@ export async function checkEmail(email) {
       issues: ['Email address does not exist', 'Domain may be invalid', 'Could be a temporary bounce']
     }
     data.ai_suggestion = await getGeminiSuggestion('email', data)
+  } else if (data.deliverability === 'DELIVERABLE') {
+    data.ai_suggestion = await getGeminiSuggestion('email_safe', data)
   }
   
   return data
@@ -48,6 +50,8 @@ export async function checkIP(ip) {
       })
     }
     data.ai_suggestion = await getGeminiSuggestion('ip', data)
+  } else {
+    data.ai_suggestion = await getGeminiSuggestion('ip_safe', data)
   }
   
   return data
@@ -56,12 +60,24 @@ export async function checkIP(ip) {
 async function getGeminiSuggestion(type, data) {
   if (GEMINI_KEY === 'demo_key') return 'Please set VITE_GEMINI_API_KEY for AI suggestions'
   
-  const prompt = type === 'email' 
-    ? `Email security issue: ${data.danger_details?.reason}. Give simple advice in 2-3 sentences for normal people.`
-    : `IP security issue: ${data.danger_details?.reason}. Give simple advice in 2-3 sentences for normal people.`
+  let prompt = ''
+  
+  if (type === 'email') {
+    prompt = `Email security issue: ${data.danger_details?.reason}. Give simple advice in 2-3 sentences for normal people on what to do if this is their email.`
+  } else if (type === 'email_safe') {
+    prompt = `Email is safe and deliverable. Give simple advice in 2-3 sentences for normal people on how to keep their email secure.`
+  } else if (type === 'ip') {
+    prompt = `IP security issue: ${data.danger_details?.reason}. Give simple advice in 2-3 sentences for normal people on what to do if this is their IP address.`
+  } else if (type === 'ip_safe') {
+    prompt = `IP address appears safe. Give simple advice in 2-3 sentences for normal people on how to keep their network secure.`
+  } else if (type === 'audio_fake') {
+    prompt = `Audio deepfake detected: ${data.analysis?.detection_reason}. Give simple advice in 2-3 sentences for normal people on what to do if this is their audio.`
+  } else if (type === 'audio_safe') {
+    prompt = `Audio appears authentic. Give simple advice in 2-3 sentences for normal people on how to protect themselves from audio deepfakes.`
+  }
   
   try {
-    const response = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_KEY}`, {
+    const response = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`, {
       contents: [{ parts: [{ text: prompt }] }]
     })
     return response.data.candidates[0].content.parts[0].text
